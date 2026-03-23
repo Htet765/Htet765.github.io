@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Formula Family Championship</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+        
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            font-family: 'Orbitron', sans-serif;
+            touch-action: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        canvas {
+            background-color: #222;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .menu-screen {
+            position: absolute;
+            background: rgba(15, 15, 15, 0.95);
+            backdrop-filter: blur(10px);
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            pointer-events: auto;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ff1e1e 0%, #a80000 100%);
+            color: white;
+            padding: 15px 40px;
+            border-radius: 8px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            border: none;
+            margin: 10px;
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 30, 30, 0.4);
+        }
+
+        .touch-controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 40px;
+            pointer-events: none;
+        }
+
+        .touch-btn {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            user-select: none;
+        }
+
+        .touch-btn:active {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .hidden { display: none !important; }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.6);
+            border-left: 4px solid #ff1e1e;
+            padding: 10px 20px;
+            color: white;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- Main Menu -->
+    <div id="main-menu" class="menu-screen">
+        <h1 class="text-6xl font-black text-white italic mb-2">FORMULA <span class="text-red-600">FAMILY</span></h1>
+        <p class="text-gray-400 mb-8 tracking-widest">CHAMPIONSHIP SERIES</p>
+        
+        <div class="flex flex-wrap justify-center max-w-2xl">
+            <button onclick="startGame('single')" class="btn-primary">Solo Time Trial</button>
+            <button onclick="startGame('multi')" class="btn-primary">2-Player Race</button>
+        </div>
+
+        <div class="mt-8 bg-gray-900 p-6 rounded-xl border border-gray-700 w-80">
+            <h3 class="text-white text-center mb-4">FAMILY SETTINGS</h3>
+            <div class="flex items-center justify-between text-sm text-gray-300">
+                <span>Kid Mode (Assist)</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="kidModeToggle" class="sr-only peer">
+                    <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                </label>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Kid mode prevents off-track spinning and helps with tight corners.</p>
+        </div>
+        
+        <div class="mt-10 text-gray-500 text-xs">
+            P1: WASD | P2: ARROWS
+        </div>
+    </div>
+
+    <!-- Pause/Game Over Menu -->
+    <div id="end-menu" class="menu-screen hidden">
+        <h2 id="winner-text" class="text-5xl font-black text-white mb-4 italic">RACE FINISHED!</h2>
+        <div id="stats-display" class="text-xl text-gray-300 mb-8"></div>
+        <button onclick="location.reload()" class="btn-primary">Main Menu</button>
+    </div>
+
+    <!-- Canvas -->
+    <canvas id="raceCanvas"></canvas>
+
+    <!-- UI Overlay -->
+    <div class="ui-overlay" id="game-ui">
+        <div class="flex justify-between w-full">
+            <div id="p1-stats" class="stat-card">
+                <div class="text-xs text-red-500 font-bold">PLAYER 1</div>
+                <div id="p1-speed" class="text-2xl">0 km/h</div>
+                <div id="p1-lap" class="text-sm">Lap: 1/3</div>
+            </div>
+            <div id="p2-stats" class="stat-card hidden">
+                <div class="text-xs text-blue-500 font-bold">PLAYER 2</div>
+                <div id="p2-speed" class="text-2xl">0 km/h</div>
+                <div id="p2-lap" class="text-sm">Lap: 1/3</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Controls (only visible on touch) -->
+    <div id="mobile-ui" class="touch-controls hidden">
+        <div class="flex flex-col gap-2">
+            <div class="touch-btn" id="btn-left">⬅️</div>
+            <div class="touch-btn" id="btn-right">➡️</div>
+        </div>
+        <div class="flex flex-col gap-2">
+            <div class="touch-btn" id="btn-up">⛽</div>
+            <div class="touch-btn" id="btn-down">🛑</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('raceCanvas');
+    const ctx = canvas.getContext('2d');
+    const menu = document.getElementById('main-menu');
+    const endMenu = document.getElementById('end-menu');
+    const winnerText = document.getElementById('winner-text');
+    const statsDisplay = document.getElementById('stats-display');
+    const kidModeToggle = document.getElementById('kidModeToggle');
+
+    // Game Config
+    const CONFIG = {
+        width: 1200,
+        height: 800,
+        friction: 0.98,
+        grassFriction: 0.92,
+        trackColor: '#333',
+        grassColor: '#2d5a27',
+        boundaryColor: '#fff',
+        maxLaps: 3
+    };
+
+    canvas.width = CONFIG.width;
+    canvas.height = CONFIG.height;
+
+    let gameState = 'MENU';
+    let isMultiplayer = false;
+    let isKidMode = false;
+
+    // Track definition (points for the center of the road)
+    const trackPoints = [
+        {x: 150, y: 150}, {x: 600, y: 100}, {x: 1050, y: 150},
+        {x: 1050, y: 400}, {x: 800, y: 500}, {x: 1050, y: 650},
+        {x: 600, y: 700}, {x: 150, y: 650}, {x: 150, y: 400}
+    ];
+
+    class Car {
+        constructor(id, color, x, y, controls) {
+            this.id = id;
+            this.color = color;
+            this.x = x;
+            this.y = y;
+            this.angle = 0;
+            this.speed = 0;
+            this.accel = 0.2;
+            this.maxSpeed = 10;
+            this.turnSpeed = 0.05;
+            this.controls = controls;
+            this.width = 40;
+            this.height = 20;
+            this.laps = 0;
+            this.checkpoints = 0;
+            this.isFinished = false;
+            this.onTrack = true;
+            this.bestLapTime = Infinity;
+            this.currentLapStart = Date.now();
+        }
+
+        update(keys, others) {
+            if (this.isFinished) return;
+
+            // Simple Input handling
+            if (keys[this.controls.up]) this.speed += this.accel;
+            if (keys[this.controls.down]) this.speed -= this.accel * 0.5;
+
+            // Turn logic - only if moving
+            if (Math.abs(this.speed) > 0.1) {
+                const turnDir = this.speed > 0 ? 1 : -1;
+                let finalTurnSpeed = this.turnSpeed;
+                
+                // Kid Mode Assistance: Higher grip/easier turning
+                if (isKidMode) {
+                    finalTurnSpeed *= 1.5;
+                }
+
+                if (keys[this.controls.left]) this.angle -= finalTurnSpeed * turnDir;
+                if (keys[this.controls.right]) this.angle += finalTurnSpeed * turnDir;
+            }
+
+            // Apply friction
+            const currentFriction = this.onTrack ? CONFIG.friction : CONFIG.grassFriction;
+            this.speed *= currentFriction;
+
+            // Prevent ridiculous speeds
+            const cap = isKidMode ? this.maxSpeed * 0.8 : this.maxSpeed;
+            if (this.speed > cap) this.speed = cap;
+            if (this.speed < -cap/2) this.speed = -cap/2;
+
+            // Movement math
+            this.x += Math.cos(this.angle) * this.speed;
+            this.y += Math.sin(this.angle) * this.speed;
+
+            // Stay inside screen
+            this.x = Math.max(20, Math.min(CONFIG.width - 20, this.x));
+            this.y = Math.max(20, Math.min(CONFIG.height - 20, this.y));
+
+            this.checkTrackStatus();
+            this.checkLapProgress();
+        }
+
+        checkTrackStatus() {
+            // Sample collision at car center to see if on gray track
+            const pixel = ctx.getImageData(this.x, this.y, 1, 1).data;
+            // Check if pixel is gray-ish (track color)
+            this.onTrack = (pixel[0] > 40 && pixel[0] < 60);
+            
+            // Kid Mode Assistance: Smooth out "grass" penalty if moving slowly
+            if (isKidMode && !this.onTrack && this.speed < 2) {
+                this.speed += 0.05; 
+            }
+        }
+
+        checkLapProgress() {
+            // Simplified Finish line check at x ~ 150, y ~ 400
+            const finishX = 150;
+            const finishY = 400;
+            const dist = Math.hypot(this.x - finishX, this.y - finishY);
+
+            if (dist < 60) {
+                if (this.checkpoints > 5) { // Ensure they did most of the track
+                    this.laps++;
+                    this.checkpoints = 0;
+                    if (this.laps >= CONFIG.maxLaps) {
+                        this.isFinished = true;
+                        checkRaceEnd();
+                    }
+                }
+            }
+
+            // Simple checkpoints based on quadrants
+            if (this.x > 800 && this.checkpoints === 0) this.checkpoints = 2;
+            if (this.y > 600 && this.checkpoints === 2) this.checkpoints = 4;
+            if (this.x < 300 && this.y > 500 && this.checkpoints === 4) this.checkpoints = 6;
+        }
+
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.angle);
+
+            // Car Body Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.fillRect(-this.width/2 + 2, -this.height/2 + 2, this.width, this.height);
+
+            // Car Body
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.roundRect(-this.width/2, -this.height/2, this.width, this.height, 4);
+            ctx.fill();
+
+            // Cockpit
+            ctx.fillStyle = '#111';
+            ctx.fillRect(-2, -6, 12, 12);
+
+            // Front Wing
+            ctx.fillStyle = '#222';
+            ctx.fillRect(this.width/2 - 5, -this.height/2 - 2, 5, this.height + 4);
+            
+            // Rear Wing
+            ctx.fillRect(-this.width/2, -this.height/2 - 2, 4, this.height + 4);
+
+            // Wheels
+            ctx.fillStyle = '#000';
+            ctx.fillRect(-12, -this.height/2 - 3, 8, 4);
+            ctx.fillRect(-12, this.height/2 - 1, 8, 4);
+            ctx.fillRect(8, -this.height/2 - 3, 8, 4);
+            ctx.fillRect(8, this.height/2 - 1, 8, 4);
+
+            ctx.restore();
+        }
+    }
+
+    let cars = [];
+    const keys = {};
+
+    function drawTrack() {
+        // Grass
+        ctx.fillStyle = CONFIG.grassColor;
+        ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
+
+        // Path logic
+        ctx.strokeStyle = CONFIG.trackColor;
+        ctx.lineWidth = 120;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        
+        ctx.beginPath();
+        ctx.moveTo(trackPoints[0].x, trackPoints[0].y);
+        for(let i=1; i<trackPoints.length; i++) {
+            ctx.lineTo(trackPoints[i].x, trackPoints[i].y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+
+        // Curbing / Borders
+        ctx.strokeStyle = '#fff';
+        ctx.setLineDash([20, 20]);
+        ctx.lineWidth = 125;
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Finish Line
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(110, 390, 80, 5);
+        ctx.fillStyle = '#000';
+        for(let i=0; i<8; i++) {
+            if(i%2 === 0) ctx.fillRect(110 + i*10, 395, 10, 10);
+        }
+    }
+
+    function startGame(mode) {
+        isMultiplayer = mode === 'multi';
+        isKidMode = kidModeToggle.checked;
+        gameState = 'PLAYING';
+        menu.classList.add('hidden');
+        
+        cars = [];
+        // P1
+        cars.push(new Car(1, '#ff1e1e', 130, 350, {
+            up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD'
+        }));
+
+        if (isMultiplayer) {
+            document.getElementById('p2-stats').classList.remove('hidden');
+            cars.push(new Car(2, '#1e88ff', 170, 350, {
+                up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight'
+            }));
+        } else {
+            document.getElementById('p2-stats').classList.add('hidden');
+        }
+
+        // Show mobile controls if touch device
+        if ('ontouchstart' in window) {
+            document.getElementById('mobile-ui').classList.remove('hidden');
+        }
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    function checkRaceEnd() {
+        const finished = cars.filter(c => c.isFinished);
+        if (isMultiplayer) {
+            if (finished.length === 1 && cars.length === 2) {
+                // Keep going for 2nd place? Or end now. Let's end.
+                showEndScreen(`PLAYER ${finished[0].id} WINS!`);
+            }
+        } else {
+            if (finished.length === 1) {
+                showEndScreen("TIME TRIAL COMPLETE!");
+            }
+        }
+    }
+
+    function showEndScreen(msg) {
+        gameState = 'END';
+        endMenu.classList.remove('hidden');
+        winnerText.innerText = msg;
+        statsDisplay.innerHTML = cars.map(c => 
+            `<div class="mb-2">Player ${c.id}: ${c.laps} Laps completed</div>`
+        ).join('');
+    }
+
+    function gameLoop() {
+        if (gameState !== 'PLAYING') return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawTrack();
+
+        cars.forEach((car, index) => {
+            car.update(keys);
+            car.draw();
+
+            // Update UI
+            const uiPrefix = `p${index+1}`;
+            document.getElementById(`${uiPrefix}-speed`).innerText = `${Math.abs(Math.round(car.speed * 25))} km/h`;
+            document.getElementById(`${uiPrefix}-lap`).innerText = `Lap: ${Math.min(car.laps + 1, CONFIG.maxLaps)} / ${CONFIG.maxLaps}`;
+        });
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    // Input Listeners
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    // Mobile Input logic
+    const setupTouchBtn = (id, code) => {
+        const el = document.getElementById(id);
+        el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[code] = true; });
+        el.addEventListener('touchend', (e) => { e.preventDefault(); keys[code] = false; });
+    };
+
+    setupTouchBtn('btn-up', 'KeyW');
+    setupTouchBtn('btn-down', 'KeyS');
+    setupTouchBtn('btn-left', 'KeyA');
+    setupTouchBtn('btn-right', 'KeyD');
+
+    // Init draw
+    drawTrack();
+
+</script>
+
+</body>
+</html>
+
+
