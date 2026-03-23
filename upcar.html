@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Voice F1 Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Orbitron:wght@400;900&display=swap');
+        
+        :root {
+            --neon-red: #ff0055;
+            --neon-blue: #00f2ff;
+            --neon-green: #39ff14;
+        }
+
+        body { 
+            font-family: 'Orbitron', sans-serif; 
+            background: #020205; 
+            color: white; 
+            overflow: hidden; 
+            touch-action: none; 
+            margin: 0;
+        }
+
+        .neon-text {
+            text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+        }
+
+        .neon-border {
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1), inset 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-neon {
+            border: 2px solid var(--neon-red);
+            color: var(--neon-red);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .btn-neon:hover {
+            background: var(--neon-red);
+            color: white;
+            box-shadow: 0 0 30px var(--neon-red);
+        }
+
+        canvas { width: 100vw; height: 100vh; object-fit: contain; filter: contrast(1.1) brightness(1.1); }
+
+        .voice-indicator {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            padding: 10px 20px;
+            border-radius: 30px;
+            border: 1px solid var(--neon-green);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .pulse {
+            width: 12px;
+            height: 12px;
+            background: var(--neon-green);
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.7); }
+            70% { transform: scale(1.2); opacity: 0.5; box-shadow: 0 0 0 10px rgba(57, 255, 20, 0); }
+            100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(57, 255, 20, 0); }
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- Main Menu Overlay -->
+    <div id="menu" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#020205]/95 backdrop-blur-sm p-6 text-center">
+        <h1 class="text-5xl md:text-7xl font-black italic mb-2 tracking-tighter text-white">
+            NEON <span class="text-[#ff0055] neon-text">VOICE</span> F1
+        </h1>
+        <p class="text-[10px] tracking-[0.8em] text-gray-400 mb-12 uppercase">Vocal Acceleration Chassis v2.0</p>
+
+        <div class="flex flex-col gap-6 w-full max-w-sm">
+            <button onclick="showTrackSelect()" class="btn-neon px-8 py-4 font-bold rounded-sm">Initiate Race</button>
+            <button onclick="toggleVoiceMode()" id="voiceToggleBtn" class="px-8 py-4 border-2 border-white/20 text-white/50 font-bold rounded-sm hover:border-green-400 hover:text-green-400 transition-all uppercase tracking-widest text-sm">
+                🎙️ Voice Control: <span id="voiceStatusText">OFF</span>
+            </button>
+            <button onclick="showTrophies()" class="px-8 py-4 bg-white/5 hover:bg-white/10 text-xs font-bold rounded-sm transition-all border border-white/10 uppercase">🏆 Hall of Fame</button>
+        </div>
+
+        <div class="mt-12 text-gray-600 text-[10px] max-w-xs leading-relaxed">
+            VOICE COMMANDS: "GO", "STOP", "LEFT", "RIGHT"<br>
+            KEYBOARD: WASD (RED) / ARROWS (BLUE)
+        </div>
+    </div>
+
+    <!-- Track Select -->
+    <div id="trackSelect" class="fixed inset-0 z-[110] flex flex-col items-center justify-center bg-black hidden">
+        <h2 class="text-2xl font-bold mb-8 italic tracking-widest">NEURAL CIRCUITS</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl px-6">
+            <div onclick="setTrack(0)" class="track-card p-6 bg-white/5 border border-white/10 rounded-sm cursor-pointer hover:border-[#ff0055] transition-all group">
+                <div class="text-[#ff0055] font-black text-xl group-hover:neon-text">CYBER OVAL</div>
+                <div class="text-[10px] text-gray-500 mt-2">OPTIMAL FOR VOICE TESTING</div>
+            </div>
+            <div onclick="setTrack(1)" class="track-card p-6 bg-white/5 border border-white/10 rounded-sm cursor-pointer hover:border-[#00f2ff] transition-all group">
+                <div class="text-[#00f2ff] font-black text-xl group-hover:neon-text">NEON GP</div>
+                <div class="text-[10px] text-gray-500 mt-2">TECHNICAL STEERING REQUIRED</div>
+            </div>
+            <div onclick="setTrack(2)" class="track-card p-6 bg-white/5 border border-white/10 rounded-sm cursor-pointer hover:border-[#39ff14] transition-all group">
+                <div class="text-[#39ff14] font-black text-xl group-hover:neon-text">GLOW SNAKE</div>
+                <div class="text-[10px] text-gray-500 mt-2">MAXIMUM VELOCITY RISK</div>
+            </div>
+        </div>
+        <button onclick="startRace()" class="mt-12 px-16 py-4 bg-[#ff0055] font-black text-sm uppercase tracking-[0.3em] hover:scale-105 transition-all">Launch Engine</button>
+    </div>
+
+    <!-- Trophies -->
+    <div id="trophyRoom" class="fixed inset-0 z-[120] flex flex-col items-center justify-center bg-black/98 p-6 hidden">
+        <h2 class="text-3xl font-black mb-8 italic text-[#ff0055] neon-text">CHAMPIONS</h2>
+        <div id="trophyList" class="w-full max-w-md space-y-4"></div>
+        <button onclick="document.getElementById('trophyRoom').classList.add('hidden')" class="mt-12 px-8 py-2 border border-white/20 text-xs">EXIT CABINET</button>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" class="fixed top-0 inset-x-0 p-8 flex justify-between items-start pointer-events-none hidden z-50">
+        <div class="flex flex-col gap-2">
+            <div class="p-4 bg-black/80 border-l-4 border-[#ff0055] backdrop-blur-md">
+                <div class="text-[10px] text-[#ff0055] font-black mb-1">P1 NEURAL SYNC</div>
+                <div class="text-3xl font-bold"><span id="p1-speed">0</span> <span class="text-xs text-gray-500">KM/H</span></div>
+                <div class="w-full bg-white/10 h-1 mt-2"><div id="p1-progress" class="bg-[#ff0055] h-full" style="width: 0%"></div></div>
+            </div>
+        </div>
+        <div class="flex flex-col items-end gap-2">
+            <div class="p-4 bg-black/80 border-r-4 border-[#00f2ff] backdrop-blur-md text-right">
+                <div class="text-[10px] text-[#00f2ff] font-black mb-1">P2 NEURAL SYNC</div>
+                <div class="text-3xl font-bold"><span id="p2-speed">0</span> <span class="text-xs text-gray-500">KM/H</span></div>
+                <div class="w-full bg-white/10 h-1 mt-2 flex justify-end"><div id="p2-progress" class="bg-[#00f2ff] h-full" style="width: 0%"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Voice Indicator Overlay -->
+    <div id="voiceUI" class="voice-indicator hidden">
+        <div class="pulse"></div>
+        <span id="voiceCommandText" class="text-xs text-[#39ff14] font-bold uppercase tracking-widest">Listening for commands...</span>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Firebase & Game Modules -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Setup
+        const firebaseConfig = JSON.parse(window.__firebase_config || '{}');
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'neon-voice-f1';
+
+        let user = null;
+        let gameState = 'MENU';
+        let isVoiceEnabled = false;
+        let selectedTrack = 0;
+        let activeKeys = new Set();
+        let voiceCommand = null;
+
+        const TRACKS = [
+            { points: [[200, 200], [1000, 200], [1000, 600], [200, 600]], color: '#ff0055' },
+            { points: [[150, 150], [600, 100], [1050, 150], [1050, 400], [800, 500], [1050, 650], [600, 700], [150, 650]], color: '#00f2ff' },
+            { points: [[100, 100], [400, 150], [350, 400], [600, 350], [800, 100], [1100, 200], [1000, 700], [700, 600], [500, 750], [150, 650]], color: '#39ff14' }
+        ];
+
+        // --- Voice Recognition ---
+        let recognition = null;
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = (event) => {
+                const transcript = Array.from(event.results)
+                    .map(result => result[0].transcript.toLowerCase())
+                    .join('');
+                
+                if (transcript.includes('go')) voiceCommand = 'UP';
+                if (transcript.includes('stop') || transcript.includes('brake')) voiceCommand = 'STOP';
+                if (transcript.includes('left')) voiceCommand = 'LEFT';
+                if (transcript.includes('right')) voiceCommand = 'RIGHT';
+                
+                document.getElementById('voiceCommandText').innerText = transcript.split(' ').pop();
+            };
+
+            recognition.onerror = () => {
+                console.log("Speech recognition error - retrying...");
+                if (isVoiceEnabled) recognition.start();
+            };
+        }
+
+        window.toggleVoiceMode = () => {
+            isVoiceEnabled = !isVoiceEnabled;
+            const btn = document.getElementById('voiceToggleBtn');
+            const status = document.getElementById('voiceStatusText');
+            if (isVoiceEnabled) {
+                if (recognition) {
+                    recognition.start();
+                    status.innerText = "ON";
+                    btn.classList.add('border-green-400', 'text-green-400');
+                    document.getElementById('voiceUI').classList.remove('hidden');
+                } else {
+                    alert("Speech recognition not supported in this browser.");
+                }
+            } else {
+                if (recognition) recognition.stop();
+                status.innerText = "OFF";
+                btn.classList.remove('border-green-400', 'text-green-400');
+                document.getElementById('voiceUI').classList.add('hidden');
+            }
+        };
+
+        // --- Game Logic ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const V_WIDTH = 1200;
+        const V_HEIGHT = 800;
+        canvas.width = V_WIDTH;
+        canvas.height = V_HEIGHT;
+
+        class Car {
+            constructor(id, color, x, y, controls) {
+                this.id = id;
+                this.color = color;
+                this.x = x;
+                this.y = y;
+                this.angle = 0;
+                this.speed = 0;
+                this.controls = controls;
+                this.laps = 0;
+                this.checkpoints = 0;
+                this.history = [];
+            }
+
+            update() {
+                // Input handling (Keyboard + Voice)
+                let throttle = activeKeys.has(this.controls.up);
+                let brake = activeKeys.has(this.controls.down);
+                let turnL = activeKeys.has(this.controls.left);
+                let turnR = activeKeys.has(this.controls.right);
+
+                // Voice override for Player 1
+                if (this.id === 1 && isVoiceEnabled && voiceCommand) {
+                    if (voiceCommand === 'UP') throttle = true;
+                    if (voiceCommand === 'STOP') { throttle = false; brake = true; }
+                    if (voiceCommand === 'LEFT') turnL = true;
+                    if (voiceCommand === 'RIGHT') turnR = true;
+                }
+
+                if (throttle) this.speed += 0.25;
+                if (brake) this.speed -= 0.15;
+                this.speed *= 0.985;
+
+                if (Math.abs(this.speed) > 0.5) {
+                    const turnRate = 0.07 * (this.speed > 0 ? 1 : -1);
+                    if (turnL) this.angle -= turnRate;
+                    if (turnR) this.angle += turnRate;
+                }
+
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed;
+
+                // Screen Wrap/Bounds
+                this.x = Math.max(20, Math.min(V_WIDTH - 20, this.x));
+                this.y = Math.max(20, Math.min(V_HEIGHT - 20, this.y));
+
+                // Trails
+                this.history.push({x: this.x, y: this.y});
+                if (this.history.length > 20) this.history.shift();
+
+                this.checkLap();
+            }
+
+            checkLap() {
+                const track = TRACKS[selectedTrack];
+                const start = track.points[0];
+                const dist = Math.hypot(this.x - start[0], this.y - start[1]);
+                if (dist < 80 && this.checkpoints > 3) {
+                    this.laps++;
+                    this.checkpoints = 0;
+                    if (this.laps >= 3) finishRace(this.id);
+                }
+                const farPoint = track.points[Math.floor(track.points.length/2)];
+                if (Math.hypot(this.x - farPoint[0], this.y - farPoint[1]) < 120) this.checkpoints = 5;
+            }
+
+            draw() {
+                // Trail
+                ctx.beginPath();
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = this.color;
+                ctx.globalAlpha = 0.3;
+                this.history.forEach((p, i) => {
+                    if (i === 0) ctx.moveTo(p.x, p.y);
+                    else ctx.lineTo(p.x, p.y);
+                });
+                ctx.stroke();
+                ctx.globalAlpha = 1.0;
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                // Glow
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.color;
+
+                // Detailed Car Drawing
+                ctx.fillStyle = this.color;
+                // Main Chassis
+                ctx.beginPath();
+                ctx.moveTo(-20, -10);
+                ctx.lineTo(20, -5);
+                ctx.lineTo(20, 5);
+                ctx.lineTo(-20, 10);
+                ctx.closePath();
+                ctx.fill();
+
+                // Wings
+                ctx.fillStyle = '#111';
+                ctx.fillRect(14, -12, 4, 24); // Front Wing
+                ctx.fillRect(-22, -14, 6, 28); // Rear Wing
+                
+                // Engine Cover / Fin
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-10, -2, 12, 4);
+
+                // Tires
+                ctx.fillStyle = '#000';
+                ctx.fillRect(-16, -14, 10, 6);
+                ctx.fillRect(-16, 8, 10, 6);
+                ctx.fillRect(6, -12, 8, 5);
+                ctx.fillRect(6, 7, 8, 5);
+
+                ctx.restore();
+            }
+        }
+
+        let p1, p2;
+
+        window.showTrackSelect = () => {
+            document.getElementById('menu').classList.add('hidden');
+            document.getElementById('trackSelect').classList.remove('hidden');
+        };
+
+        window.setTrack = (idx) => {
+            selectedTrack = idx;
+            document.querySelectorAll('.track-card').forEach((c, i) => {
+                c.classList.toggle('border-white', i === idx);
+            });
+        };
+
+        window.startRace = () => {
+            gameState = 'PLAYING';
+            p1 = new Car(1, '#ff0055', TRACKS[selectedTrack].points[0][0], TRACKS[selectedTrack].points[0][1]-30, { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD' });
+            p2 = new Car(2, '#00f2ff', TRACKS[selectedTrack].points[0][0], TRACKS[selectedTrack].points[0][1]+30, { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' });
+            document.getElementById('trackSelect').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+            gameLoop();
+        };
+
+        async function finishRace(id) {
+            gameState = 'FINISHED';
+            alert(`PLAYER ${id === 1 ? 'RED' : 'BLUE'} WINS! Saving trophy...`);
+            const winnerName = id === 1 ? "Player Red" : "Player Blue";
+            if (user) {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'trophies', winnerName);
+                const snap = await getDoc(docRef);
+                if (snap.exists()) await updateDoc(docRef, { wins: increment(1) });
+                else await setDoc(docRef, { wins: 1 });
+            }
+            location.reload();
+        }
+
+        function drawTrack() {
+            const track = TRACKS[selectedTrack];
+            // Ambient grid
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+            ctx.lineWidth = 1;
+            for(let x=0; x<V_WIDTH; x+=40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x, V_HEIGHT); ctx.stroke(); }
+            for(let y=0; y<V_HEIGHT; y+=40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(V_WIDTH, y); ctx.stroke(); }
+
+            // Asphalt
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.lineWidth = 150;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(track.points[0][0], track.points[0][1]);
+            track.points.forEach(p => ctx.lineTo(p[0], p[1]));
+            ctx.closePath();
+            ctx.stroke();
+
+            // Neon Borders
+            ctx.strokeStyle = track.color;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = track.color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([30, 15]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.shadowBlur = 0;
+        }
+
+        function gameLoop() {
+            if (gameState !== 'PLAYING') return;
+            ctx.fillStyle = '#020205';
+            ctx.fillRect(0,0,V_WIDTH,V_HEIGHT);
+            
+            drawTrack();
+            p1.update(); p2.update();
+            p1.draw(); p2.draw();
+
+            // HUD
+            document.getElementById('p1-speed').innerText = Math.abs(Math.round(p1.speed * 20));
+            document.getElementById('p2-speed').innerText = Math.abs(Math.round(p2.speed * 20));
+            document.getElementById('p1-progress').style.width = (p1.laps/3 * 100) + "%";
+            document.getElementById('p2-progress').style.width = (p2.laps/3 * 100) + "%";
+
+            // Clear voice command after processing a bit of movement
+            if (voiceCommand && Math.random() > 0.9) voiceCommand = null;
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.showTrophies = async () => {
+            document.getElementById('trophyRoom').classList.remove('hidden');
+            const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'trophies');
+            onSnapshot(colRef, (snap) => {
+                const list = [];
+                snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+                doc
